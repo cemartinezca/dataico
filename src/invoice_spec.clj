@@ -33,3 +33,24 @@
   (s/keys :req [:invoice/issue-date
                 :invoice/customer
                 :invoice/items]))
+
+
+;; Problem 1 Thread-last Operator ->>
+
+(defn is-valid-item?
+  [item]
+  (let [taxes (:taxable/taxes item)
+        retentions (:retentionable/retentions item)
+        has-iva-19? (some #(= (:tax/rate %) 19) taxes)
+        has-rete-1? (some #(= (:retention/rate %) 1) retentions)]
+    (if (and has-iva-19? has-rete-1?)
+      false
+      (or has-iva-19? has-rete-1? false))))
+
+(def invoice-data
+  (->> (slurp "invoice.edn")
+       (clojure.edn/read-string)
+       (:invoice/items)
+       (filter is-valid-item?)))
+
+(println invoice-data)
