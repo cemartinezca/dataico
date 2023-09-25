@@ -73,7 +73,6 @@
                               result)
     (= key "items") (let [invoice-items (map 
                                          #(reduce (fn [new-map [k v]]
-                                                    ;;(assoc new-map (keyword "invoice-item" k) v))
                                                     (if (= k "taxes")
                                                       (assoc new-map (keyword "invoice-item" k) (get-value k v))
                                                       (assoc new-map (keyword "invoice-item" k) v)))
@@ -85,10 +84,6 @@
                                             rate (get % "tax_rate")]
                                         {(keyword "tax" "category") category
                                          (keyword "tax" "rate") (double rate)}) value)
-                                ;;  #(reduce (fn [new-map [k v]]
-                                ;;             (assoc new-map (keyword "tax" (str/replace k #"tax_" "")) v))
-                                ;;           {}
-                                ;;           %) value)
                           result (into [] taxes)]
                       result)
     (= key "customer") (let [name (get value "company_name")
