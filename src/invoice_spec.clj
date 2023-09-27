@@ -43,6 +43,7 @@
 ;; Problem 1 Thread-last Operator ->>
 
 (defn is-valid-item?
+  "Look for one of the given conditions: 1. Has IVA 19 item 2. Has Retenttion"
   [item]
   (let [taxes (:taxable/taxes item)
         retentions (:retentionable/retentions item)
@@ -65,40 +66,56 @@
 (defn parse-date-to-instant
   "This functions convert a date string to an Instant value"
   [date]
-  ;; (let [source-formatter (f/formatter "dd/MM/yyyy")
-  ;;       dest-formatter (f/formatter "yyyy-MM-dd")
-  ;;       parsed-date (f/parse source-formatter date)
-  ;;       dest-date (f/unparse dest-formatter parsed-date)
-  ;;       result (instant/read-instant-date dest-date)]
-  ;;   result))
-  date)
+  (let [source-formatter (f/formatter "dd/MM/yyyy")
+        dest-formatter (f/formatter "yyyy-MM-dd")
+        parsed-date (f/parse source-formatter date)
+        dest-date (f/unparse dest-formatter parsed-date)
+        result (instant/read-instant-date dest-date)]
+    result))
+
+(defn parse-taxes
+  "Parse a list of taxes"
+  [taxes]
+  (let [taxes (map 
+               #(let [category :iva
+                      rate (get % "tax_rate")]
+                  {(keyword "tax" "category") category
+                   (keyword "tax" "rate") (double rate)}) 
+               taxes)
+        result (into [] taxes)]
+    result))
+
+(defn parse-items-list
+  "Parse the items list provided in the invoice"
+  [items]
+  (let [invoice-items (map
+                       #(reduce 
+                         (fn [new-map [k v]]
+                           (if (= k "taxes")
+                             (assoc new-map (keyword "invoice-item" k) (parse-taxes v))
+                             (assoc new-map (keyword "invoice-item" k) v)))
+                         {}
+                         %)
+                       items)
+        result (into [] invoice-items)]
+    result))
+
+(defn parse-user-info
+  "Parse the user data"
+  [value]
+  (let [name (get value "company_name")
+        email (get value "email")
+        result {:customer/name name :customer/email email}]
+    result))
 
 (defn get-value
+  "Returns the proper value according to the given a key"
   [key value]
-
   (def time-keys '("issue_date" "payment_date"))
-  
   (cond 
     (some #{key} time-keys) (parse-date-to-instant value)
-    (= key "items") (let [invoice-items (map 
-                                         #(reduce (fn [new-map [k v]]
-                                                    (if (= k "taxes")
-                                                      (assoc new-map (keyword "invoice-item" k) (get-value k v))
-                                                      (assoc new-map (keyword "invoice-item" k) v)))
-                                                  {}
-                                                  %) value)
-                          result (into [] invoice-items)]
-                      result)
-    (= key "taxes") (let [taxes (map #(let [category :iva
-                                            rate (get % "tax_rate")]
-                                        {(keyword "tax" "category") category
-                                         (keyword "tax" "rate") (double rate)}) value)
-                          result (into [] taxes)]
-                      result)
-    (= key "customer") (let [name (get value "company_name")
-                             email (get value "email")
-                             result {:customer/name name :customer/email email}]
-                         result)
+    (= key "items")         (parse-items-list value)
+    (= key "customer")      (parse-user-info value)
     :else  value))
 
 ;; (inst? (get-value "payment_date" "12/11/2020"))
@@ -121,8 +138,7 @@
                       (json/read-str)
                       (organize-map)))
 
-(organize-map (json/read-str (slurp "invoice.json")))
-
+;; (organize-map (json/read-str (slurp "invoice.json")))
 
 (s/explain ::invoice invoice-json)
 (s/valid? ::invoice invoice-json)
