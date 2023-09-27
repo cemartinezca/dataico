@@ -1,9 +1,11 @@
 (ns invoice-spec
   (:require
-    [clojure.spec.alpha :as s]
-    [clojure.data.json :as json] 
-    [clojure.string :as str] 
-    [clj-time.format :as f]))
+   [clojure.spec.alpha :as s]
+   [clojure.data.json :as json] 
+   [clojure.string :as str] 
+   [clj-time.format :as f]
+   [clojure.instant :as instant]
+   [clojure.edn :as edn]))
 
 (defn not-blank? [value] (-> value clojure.string/blank? not))
 (defn non-empty-string? [x] (and (string? x) (not-blank? x)))
@@ -52,7 +54,7 @@
 
 (def invoice-data
   (->> (slurp "invoice.edn")
-       (clojure.edn/read-string)
+       (edn/read-string)
        (:invoice/items)
        (filter is-valid-item?)))
 
@@ -60,17 +62,24 @@
 
 ;; Problem 2: Core Generating Functions
 
+(defn parse-date-to-instant
+  "This functions convert a date string to an Instant value"
+  [date]
+  ;; (let [source-formatter (f/formatter "dd/MM/yyyy")
+  ;;       dest-formatter (f/formatter "yyyy-MM-dd")
+  ;;       parsed-date (f/parse source-formatter date)
+  ;;       dest-date (f/unparse dest-formatter parsed-date)
+  ;;       result (instant/read-instant-date dest-date)]
+  ;;   result))
+  date)
+
 (defn get-value
   [key value]
-  (def time-keys ["issue_date" "payment_date"])
+
+  (def time-keys '("issue_date" "payment_date"))
   
   (cond 
-    (some #{key} time-keys) (let [source-formatter (f/formatter "dd/MM/yyyy")
-                                  dest-formatter (f/formatter "yyyy-MM-dd")
-                                  parsed-date (f/parse source-formatter value)
-                                  dest-date (f/unparse dest-formatter parsed-date)
-                                  result (clojure.instant/read-instant-date dest-date)]
-                              result)
+    (some #{key} time-keys) (parse-date-to-instant value)
     (= key "items") (let [invoice-items (map 
                                          #(reduce (fn [new-map [k v]]
                                                     (if (= k "taxes")
@@ -112,7 +121,7 @@
                       (json/read-str)
                       (organize-map)))
 
-;; (organize-map (json/read-str (slurp "invoice.json")))
+(organize-map (json/read-str (slurp "invoice.json")))
 
 
 (s/explain ::invoice invoice-json)
